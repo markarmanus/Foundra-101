@@ -3,15 +3,21 @@ import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 
-import { ForwardRefExoticComponent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import FoundraLogo from "/logo.png";
 import "./App.css";
-import { overRideLocalHost, sendExtensionOpenMsg, sendReactAppStateUpdateEvent } from "./backgroundServiceAPI";
+import {
+  overRideLocalHost,
+  sendExtensionOpenMsg,
+  sendGenerateMsg,
+  sendReactAppStateUpdateEvent,
+} from "./backgroundServiceAPI";
 import { Chip, Container, ContainerProps, Stack, StackProps, Typography } from "@mui/material";
 import { EXPLANATION_MODES, SUMMARIZATION_MODES } from "../constants/modes";
 import {
   AssistWalkerRounded,
   CheckCircle,
+  DeleteForeverRounded,
   DirectionsRunRounded,
   DirectionsWalkRounded,
   ShortTextRounded,
@@ -21,7 +27,7 @@ import {
 } from "@mui/icons-material";
 
 import { Line } from "rc-progress";
-import { AnimatePresence, LayoutGroup, motion, useAnimation } from "motion/react";
+import { AnimatePresence, motion, useAnimation } from "motion/react";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { LoadingStepData, ReactAppState } from "../types/AppData";
 import { getCurrentTab } from "./currentPageExecuter";
@@ -88,6 +94,7 @@ const initialLoadingData = Object.values(LOADING_STEPS).map((label) => {
 function App() {
   const [selectedExplanationMode, SetSelectedExplanationMode] = useState(explanationModeData[EXPLANATION_MODES.NOVICE]);
   const [selectedSummaryMode, setSelectedSummaryMode] = useState(summarizationModeData[SUMMARIZATION_MODES.AS_IS]);
+  const [readyToRender, setReadyToRender] = useState(false);
   const [tabId, setTabId] = useState<number | undefined>();
   const [loadingData, setLoadingData] = useState<LoadingStepData[]>(initialLoadingData);
   const controls = useAnimation();
@@ -118,10 +125,13 @@ function App() {
       selectedExplanationMode,
       selectedSummaryMode,
       loadingData,
+      isGenerating: false,
       tabId,
     };
     const data = await sendExtensionOpenMsg(appState);
     applyAppState(data as ReactAppState);
+    setReadyToRender(true);
+    controls.start("fadeIn");
   };
 
   // Step 3: Apply State updates When update comes from Service App
@@ -137,31 +147,46 @@ function App() {
   useEffect(() => {
     const appState: ReactAppState = {
       selectedExplanationMode,
+      isGenerating: loading,
       selectedSummaryMode,
       tabId,
       loadingData,
     };
     sendReactAppStateUpdateEvent(appState);
-  }, [selectedSummaryMode, selectedExplanationMode]);
+  }, [selectedSummaryMode, selectedExplanationMode, loading]);
 
   const applyAppState = (appState: ReactAppState) => {
     if (appState.tabId === tabId) {
       SetSelectedExplanationMode(explanationModeData[appState.selectedExplanationMode.id]);
       setSelectedSummaryMode(summarizationModeData[appState.selectedSummaryMode.id]);
       setLoadingData(appState.loadingData);
+      setLoading(appState.isGenerating);
     }
   };
 
   const changeExplanationMode = (modeId: number) => {
     SetSelectedExplanationMode(explanationModeData[modeId]);
   };
+
   const changeSummaryMode = (modeId: number) => {
     setSelectedSummaryMode(summarizationModeData[modeId]);
   };
-  const generate = () => {
-    setLoading(!loading);
 
+  const generate = () => {
+    setLoading(true);
+    sendGenerateMsg(tabId!);
+  };
+
+  const reset = () => {
     setLoadingData(initialLoadingData);
+    setLoading(false);
+    sendReactAppStateUpdateEvent({
+      loadingData: initialLoadingData,
+      isGenerating: false,
+      selectedExplanationMode,
+      selectedSummaryMode,
+      tabId,
+    });
   };
 
   // Render Logic
@@ -243,12 +268,9 @@ function App() {
       controls.start("rotating");
     } else {
       document.getElementById("logo")?.classList.remove("rotating");
-      controls.start("paused");
+      controls.start("paused", { delay: 0.2, duration: 1 });
     }
   }, [loading]);
-
-  const MotionStack = motion.create(Stack as ForwardRefExoticComponent<StackProps>);
-  const MotionContainer = motion.create(Container as ForwardRefExoticComponent<ContainerProps>);
 
   const middleContainerMinHeight = "260px";
   const middleContainerMinWidth = "470px";
@@ -259,12 +281,12 @@ function App() {
       filter: ["drop-shadow(0 0 2em #646cffaa)", "drop-shadow(0 0 3em #646cff55)", "drop-shadow(0 0 2em #646cffaa)"],
       transition: {
         rotate: {
-          duration: 2,
+          duration: 3,
           repeat: Infinity,
           ease: [0.25, 1, 0.5, 1],
         },
         filter: {
-          duration: 2,
+          duration: 3,
           repeat: Infinity,
           ease: "easeInOut",
         },
@@ -274,7 +296,13 @@ function App() {
       rotate: 360,
       filter: "drop-shadow(0 0 2em #646cffaa)",
       transition: {
-        duration: 0.5,
+        duration: 1,
+      },
+    },
+    fadeIn: {
+      opacity: [0, 1],
+      transition: {
+        duration: 1,
       },
     },
   };
@@ -297,30 +325,39 @@ function App() {
             }}
           />
         </Container>
-        <Container sx={{ minHeight: middleContainerMinHeight, minWidth: middleContainerMinWidth, margin: "20px 0px" }}>
-          <AnimatePresence mode="wait">
-            {loading && (
-              <Stack sx={{ minHeight: middleContainerMinHeight, overflow: "hidden" }} justifyContent={"space-around"}>
-                {getLoadingStepComponents()}
-              </Stack>
-            )}
-            {!loading && (
-              <Container sx={{ minHeight: middleContainerMinHeight, overflow: "hidden" }}>
-                {getExplanationModeComponents()}
-                {getSummaryModeComponents()}
-              </Container>
-            )}
-          </AnimatePresence>
-        </Container>
-        <Container>
-          <Chip
-            size="medium"
-            onClick={generate}
-            label={loading ? "Reset" : "Generate"}
-            color={loading ? "warning" : "secondary"}
-            icon={<SmartToyRounded />}
-          />
-        </Container>
+        {readyToRender && (
+          <>
+            <Container
+              sx={{ minHeight: middleContainerMinHeight, minWidth: middleContainerMinWidth, margin: "20px 0px" }}
+            >
+              <AnimatePresence mode="wait">
+                {loading && (
+                  <Stack
+                    sx={{ minHeight: middleContainerMinHeight, overflow: "hidden" }}
+                    justifyContent={"space-around"}
+                  >
+                    {getLoadingStepComponents()}
+                  </Stack>
+                )}
+                {!loading && (
+                  <Container sx={{ minHeight: middleContainerMinHeight, overflow: "hidden" }}>
+                    {getExplanationModeComponents()}
+                    {getSummaryModeComponents()}
+                  </Container>
+                )}
+              </AnimatePresence>
+            </Container>
+            <Container>
+              <Chip
+                size="medium"
+                onClick={loading ? reset : generate}
+                label={loading ? "Reset" : "Generate"}
+                color={loading ? "warning" : "secondary"}
+                icon={loading ? <DeleteForeverRounded /> : <SmartToyRounded />}
+              />
+            </Container>
+          </>
+        )}
       </ThemeProvider>
     </>
   );

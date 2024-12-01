@@ -18,7 +18,24 @@ interface ReactAppStateUpdateEvent {
   type: "ReactAppStateUpdateEvent";
   appState: ReactAppState;
 }
+interface GenerateEvent {
+  type: "GenerateEvent";
+  pageText: string;
+  tabId: number;
+}
 
-type Event = ExtensionClosedEvent | ExtensionOpenedEvent | LogConsoleMsgEvent | ReactAppStateUpdateEvent;
+type Event =
+  | ExtensionClosedEvent
+  | ExtensionOpenedEvent
+  | LogConsoleMsgEvent
+  | ReactAppStateUpdateEvent
+  | GenerateEvent;
 
-export type { ReactAppStateUpdateEvent, ExtensionClosedEvent, ExtensionOpenedEvent, LogConsoleMsgEvent, Event };
+export type {
+  ReactAppStateUpdateEvent,
+  ExtensionClosedEvent,
+  ExtensionOpenedEvent,
+  LogConsoleMsgEvent,
+  Event,
+  GenerateEvent,
+};

@@ -8,6 +8,7 @@ interface ReactAppState {
     label: string;
   };
   loadingData: LoadingStepData[];
+  isGenerating: boolean;
   tabId: number | undefined;
 }
 

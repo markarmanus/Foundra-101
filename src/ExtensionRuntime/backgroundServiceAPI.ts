@@ -1,5 +1,6 @@
 import { MSG_TYPES } from "../constants/crossRuntimeMsgs";
 import { ReactAppState } from "../types/AppData";
+import { getTabText } from "./TabScripter";
 
 const sendLogToBackground = (logMsg: any, logType: string) => {
   chrome.runtime.sendMessage({ type: MSG_TYPES.LogConsoleMsgEvent, logType, logMsg: JSON.stringify(logMsg) });
@@ -29,6 +30,15 @@ const sendExtensionOpenMsg = async (appState: ReactAppState) => {
     );
   });
 };
+
+const sendGenerateMsg = async (tabId: number) => {
+  const pageText = await getTabText(tabId);
+  return await chrome.runtime.sendMessage({
+    type: MSG_TYPES.GenerateEvent,
+    tabId,
+    pageText,
+  });
+};
 const sendReactAppStateUpdateEvent = async (appState: ReactAppState) => {
   return new Promise(async (resolve) => {
     await chrome.runtime.sendMessage(
@@ -42,4 +52,4 @@ const sendReactAppStateUpdateEvent = async (appState: ReactAppState) => {
     );
   });
 };
-export { overRideLocalHost, sendExtensionOpenMsg, sendReactAppStateUpdateEvent };
+export { overRideLocalHost, sendGenerateMsg, sendExtensionOpenMsg, sendReactAppStateUpdateEvent };

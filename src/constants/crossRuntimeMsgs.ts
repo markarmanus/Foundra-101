@@ -3,5 +3,6 @@ const MSG_TYPES = {
   ExtensionOpenedEvent: "ExtensionOpenedEvent",
   ExtensionClosedEvent: "ExtensionClosedEvent",
   ReactAppStateUpdateEvent: "ReactAppStateUpdateEvent",
+  GenerateEvent: "GenerateEvent",
 } as const;
 export { MSG_TYPES };
