@@ -24,7 +24,7 @@ const sendExtensionOpenMsg = async (appState: ReactAppState) => {
         appState,
       },
       (res) => {
-        resolve(JSON.parse(res));
+        resolve(res);
       }
     );
   });

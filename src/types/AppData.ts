@@ -8,12 +8,13 @@ interface ReactAppState {
     label: string;
   };
   loadingData: LoadingStepData[];
+  tabId: number | undefined;
 }
 
 interface LoadingStepData {
   label: string;
   progress: number;
-  paletteColor: any;
+  paletteColor?: any;
 }
 
 export type { ReactAppState, LoadingStepData };

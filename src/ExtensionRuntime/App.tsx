@@ -21,9 +21,13 @@ import {
 } from "@mui/icons-material";
 
 import { Line } from "rc-progress";
-import { LayoutGroup, motion, useAnimation } from "motion/react";
+import { AnimatePresence, LayoutGroup, motion, useAnimation } from "motion/react";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { LoadingStepData, ReactAppState } from "../types/AppData";
+import { getCurrentTab } from "./currentPageExecuter";
+import { Event } from "../types/crossRuntimeEvents";
+import { MSG_TYPES } from "../constants/crossRuntimeMsgs";
+import { LOADING_STEPS } from "../constants/loadingSteps";
 
 const theme = createTheme({
   palette: {
@@ -77,45 +81,76 @@ const summarizationModeData = {
   },
 };
 
+const initialLoadingData = Object.values(LOADING_STEPS).map((label) => {
+  return { paletteColor: theme.palette.secondary, progress: 0, label };
+});
+
 function App() {
   const [selectedExplanationMode, SetSelectedExplanationMode] = useState(explanationModeData[EXPLANATION_MODES.NOVICE]);
   const [selectedSummaryMode, setSelectedSummaryMode] = useState(summarizationModeData[SUMMARIZATION_MODES.AS_IS]);
-  const [loadingData, setLoadingData] = useState<LoadingStepData[]>([
-    { paletteColor: theme.palette.secondary, progress: 20, label: "Reading The Page" },
-    { paletteColor: theme.palette.secondary, progress: 20, label: "Reading The Page" },
-  ]);
+  const [tabId, setTabId] = useState<number | undefined>();
+  const [loadingData, setLoadingData] = useState<LoadingStepData[]>(initialLoadingData);
   const controls = useAnimation();
   const [loading, setLoading] = useState(false);
 
-  const applyAppState = (appState: ReactAppState) => {
-    SetSelectedExplanationMode(explanationModeData[appState.selectedExplanationMode.id]);
-    setSelectedSummaryMode(summarizationModeData[appState.selectedSummaryMode.id]);
-    setLoadingData(appState.loadingData);
+  //Step 1: Get Tha Tab Id and Store it
+  const initializeExtension = async () => {
+    overRideLocalHost();
+    const tabId = (await getCurrentTab()).id;
+    setTabId(tabId);
   };
 
-  const getInitialAppData = async () => {
+  useEffect(() => {
+    initializeExtension();
+  }, []);
+
+  // Step 2: Get Stored App Data If it Exists
+  useEffect(() => {
+    if (tabId) {
+      setTabId(tabId);
+      getInitialAppData(tabId);
+      listenToStateUpdates();
+    }
+  }, [tabId]);
+
+  const getInitialAppData = async (tabId: number) => {
     const appState: ReactAppState = {
       selectedExplanationMode,
       selectedSummaryMode,
       loadingData,
+      tabId,
     };
     const data = await sendExtensionOpenMsg(appState);
     applyAppState(data as ReactAppState);
   };
 
-  useEffect(() => {
-    overRideLocalHost();
-    getInitialAppData();
-  }, []);
+  // Step 3: Apply State updates When update comes from Service App
+  const listenToStateUpdates = () => {
+    chrome.runtime.onMessage.addListener((event: Event, sender) => {
+      if (event.type === MSG_TYPES.ReactAppStateUpdateEvent) {
+        applyAppState(event.appState);
+      }
+    });
+  };
 
+  // Step 4: Send State Updates to Service App To Store when User Interacts
   useEffect(() => {
     const appState: ReactAppState = {
       selectedExplanationMode,
       selectedSummaryMode,
+      tabId,
       loadingData,
     };
     sendReactAppStateUpdateEvent(appState);
   }, [selectedSummaryMode, selectedExplanationMode]);
+
+  const applyAppState = (appState: ReactAppState) => {
+    if (appState.tabId === tabId) {
+      SetSelectedExplanationMode(explanationModeData[appState.selectedExplanationMode.id]);
+      setSelectedSummaryMode(summarizationModeData[appState.selectedSummaryMode.id]);
+      setLoadingData(appState.loadingData);
+    }
+  };
 
   const changeExplanationMode = (modeId: number) => {
     SetSelectedExplanationMode(explanationModeData[modeId]);
@@ -126,15 +161,10 @@ function App() {
   const generate = () => {
     setLoading(!loading);
 
-    setLoadingData([
-      { paletteColor: theme.palette.secondary, progress: 60, label: "Gathering Info" },
-      { paletteColor: theme.palette.secondary, progress: 100, label: "Segmenting The Text" },
-      { paletteColor: theme.palette.secondary, progress: 100, label: "Reading Text Segments" },
-      { paletteColor: theme.palette.secondary, progress: 100, label: "Analyzing The Page Structure" },
-      { paletteColor: theme.palette.secondary, progress: 100, label: "Modifying The Page" },
-    ]);
+    setLoadingData(initialLoadingData);
   };
 
+  // Render Logic
   const getLoadingStepComponents = () => {
     return loadingData.map((loadingStepData) => {
       const { paletteColor, label, progress } = loadingStepData;
@@ -181,6 +211,7 @@ function App() {
       </Container>
     );
   };
+
   const getSummaryModeComponents = () => {
     const chipComponents = Object.values(summarizationModeData).map((mode) => {
       const selected = selectedSummaryMode.id === mode.id;
@@ -215,21 +246,14 @@ function App() {
       controls.start("paused");
     }
   }, [loading]);
+
   const MotionStack = motion.create(Stack as ForwardRefExoticComponent<StackProps>);
   const MotionContainer = motion.create(Container as ForwardRefExoticComponent<ContainerProps>);
 
   const middleContainerMinHeight = "260px";
   const middleContainerMinWidth = "470px";
-  const animationProps = {
-    initial: { height: "0px", minHeight: "0px" },
-    animate: { height: middleContainerMinHeight, minHeight: middleContainerMinHeight },
-    exit: { height: middleContainerMinHeight, minHeight: middleContainerMinHeight },
-    transition: { layout: { duration: 0.5 } },
-    sx: { minHeight: middleContainerMinHeight, overflow: "hidden" },
-    layout: true,
-  };
 
-  const LogoVariants = {
+  const logoAnimationVariants = {
     rotating: {
       rotate: [0, 360],
       filter: ["drop-shadow(0 0 2em #646cffaa)", "drop-shadow(0 0 3em #646cff55)", "drop-shadow(0 0 2em #646cffaa)"],
@@ -267,26 +291,26 @@ function App() {
             id="logo"
             alt="Foundra Logo"
             animate={controls}
-            variants={LogoVariants}
+            variants={logoAnimationVariants}
             whileHover={{
               filter: "drop-shadow(0 0 2em #646cffaa)",
             }}
           />
         </Container>
         <Container sx={{ minHeight: middleContainerMinHeight, minWidth: middleContainerMinWidth, margin: "20px 0px" }}>
-          <LayoutGroup>
+          <AnimatePresence mode="wait">
             {loading && (
-              <MotionStack {...animationProps} justifyContent={"space-around"}>
+              <Stack sx={{ minHeight: middleContainerMinHeight, overflow: "hidden" }} justifyContent={"space-around"}>
                 {getLoadingStepComponents()}
-              </MotionStack>
+              </Stack>
             )}
             {!loading && (
-              <MotionContainer {...animationProps}>
+              <Container sx={{ minHeight: middleContainerMinHeight, overflow: "hidden" }}>
                 {getExplanationModeComponents()}
                 {getSummaryModeComponents()}
-              </MotionContainer>
+              </Container>
             )}
-          </LayoutGroup>
+          </AnimatePresence>
         </Container>
         <Container>
           <Chip

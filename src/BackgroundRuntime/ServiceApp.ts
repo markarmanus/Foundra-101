@@ -30,6 +30,7 @@ chrome.runtime.onMessage.addListener((event: Event, _, sendResponse) => {
     if (handlers[eventType]) {
       handlers[eventType](event, sendResponse);
     }
+
     // const summary = await AI.getCurrentTabSummarization(message.pageText);
     // const segmentedText = await getCurrentPageSegmentedText();
     // console.log(segmentedText);
