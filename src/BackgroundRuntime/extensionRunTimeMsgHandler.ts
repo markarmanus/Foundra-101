@@ -50,7 +50,7 @@ const handleResetEvent = async (event: Event) => {
   const tabId = typedEvent.tabId.toFixed();
   await ChromeWrapper.deleteStorage(tabId);
 };
-let fakeWaitTime = 500;
+let fakeWaitTime = 800;
 
 const handleGenerateEvent = async (event: Event) => {
   const typedEvent = event as GenerateEvent;
@@ -64,7 +64,7 @@ const handleGenerateEvent = async (event: Event) => {
     });
 
   /*
- ---------Step 1-------
+ ---------Step 1------- (Fake Step)
  */
   updateLoadingStepData(
     {
@@ -73,6 +73,7 @@ const handleGenerateEvent = async (event: Event) => {
     },
     tabId
   );
+  wait(fakeWaitTime);
   updateLoadingStepData(
     {
       label: LOADING_STEPS.GATHERING_INFO,
@@ -93,7 +94,6 @@ const handleGenerateEvent = async (event: Event) => {
       tabId
     );
   };
-  console.log(pageText);
   const summary = await AIManager.summarizeText(pageText, updateSummaryProgress, tabId);
 
   /*
@@ -108,6 +108,7 @@ const handleGenerateEvent = async (event: Event) => {
     tabId
   );
   console.log(segmentedText);
+  wait(fakeWaitTime);
   await updateLoadingStepData(
     {
       label: LOADING_STEPS.SEGMENTING,
@@ -127,6 +128,7 @@ const handleGenerateEvent = async (event: Event) => {
     tabId
   );
   await addCSSToTab(tabId, editedElementsCSS);
+  wait(fakeWaitTime);
   await updateLoadingStepData(
     {
       label: LOADING_STEPS.ALLOWING,

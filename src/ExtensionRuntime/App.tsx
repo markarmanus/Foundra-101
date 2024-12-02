@@ -313,7 +313,7 @@ function App() {
     },
     paused: {
       rotate: 360,
-      filter: "drop-shadow(0 0 2em #646cffaa)",
+      filter: ["drop-shadow(0 0 2em #646cffaa)", "drop-shadow(0 0 0em #646cffaa)"],
       transition: {
         duration: 1,
       },
@@ -339,8 +339,10 @@ function App() {
             alt="Foundra Logo"
             animate={controls}
             variants={logoAnimationVariants}
+            initial={{ filter: "drop-shadow(0 0 0em #646cffaa)" }}
             whileHover={{
               filter: "drop-shadow(0 0 2em #646cffaa)",
+              scale: 1.01,
             }}
           />
         </Container>

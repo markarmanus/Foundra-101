@@ -67,10 +67,6 @@ const getPageSegmentedText = (): { segmentPageText: string } => {
         return false; // No direct text content found
       }
 
-      // Return the formatted string with element wrapping
-      const margin = getComputedStyle(element).marginBottom
-        ? "\n".repeat(Math.min(parseFloat(getComputedStyle(element).marginBottom) / 8, 3))
-        : "";
       if (
         !childrenText ||
         childrenText
@@ -83,7 +79,7 @@ const getPageSegmentedText = (): { segmentPageText: string } => {
       if (!hasDirectText(element)) {
         result = "\n" + `  ` + childrenText + "\n";
       } else {
-        result = openingTag + "\n" + `  ` + childrenText + "\n" + closingTag + margin;
+        result = openingTag + "\n" + `  ` + childrenText + "\n" + closingTag;
       }
     }
 

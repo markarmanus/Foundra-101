@@ -3,6 +3,9 @@ import { generateHash } from "../utils/encoder";
 import { MSG_TYPES } from "../constants/crossRuntimeMsgs";
 import { Event } from "../types/crossRuntimeEvents";
 import { EXPLANATION_MODES, SUMMARIZATION_MODES } from "../constants/modes";
+import { splitString } from "../utils/textManipulator";
+import { ERROR_CODES } from "../constants/errors";
+import { AppError } from "../types/AppData";
 
 const deletePrompterOnReset = (prompt: AILanguageModel, tabId: number) => {
   const deleteFn = (event: Event) => {
@@ -44,15 +47,50 @@ const promptStreaming = async (
        `
     );
   } catch (e) {
-    console.error(e);
     if (retries > attempts) {
       return promptStreaming(prompter, request, data, context, attempts++);
     } else {
-      return;
+      const error: AppError = {
+        code: ERROR_CODES.PROMPTER_FAILED,
+        message: `Failed ${retries} times to process the text.`,
+      };
+      throw new Error(JSON.stringify(error));
     }
   }
 
   return stream;
+};
+const prompt = async (
+  prompter: AILanguageModel,
+  request: string,
+  data: string,
+  context?: string,
+  retries = 3
+): Promise<string | undefined> => {
+  let attempts = 0;
+  let stream;
+  try {
+    return await prompter.prompt(
+      `
+        ${context ? "Using The following block as context" + context : ""}
+        
+        
+        ${request}
+   
+        ${data}
+       `
+    );
+  } catch (e) {
+    if (retries > attempts) {
+      return prompt(prompter, request, data, context, attempts++);
+    } else {
+      const error: AppError = {
+        code: ERROR_CODES.PROMPTER_FAILED,
+        message: `Failed ${retries} times to process the text.`,
+      };
+      throw new Error(JSON.stringify(error));
+    }
+  }
 };
 
 const summarizeText = async (
@@ -75,31 +113,50 @@ const summarizeText = async (
   });
   deletePrompterOnReset(prompter, tabId);
 
-  const summaryStream = await promptStreaming(
-    prompter,
-    "Summarize this entire text block into a few bullet points marinating all the important information and removing any duplicates.",
-    trimmedText
-  );
   const summarizationRate = 5;
   const totalTextLength = pageText.length;
   const estimatedSummarizedTextSize = totalTextLength / summarizationRate;
-  if (summaryStream) {
-    const reader = summaryStream.getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        updateProgress(100);
-        break;
-      } else {
-        const progress = Math.round((value.length / estimatedSummarizedTextSize) * 100);
-        summary = value;
-        updateProgress(progress);
+  const summarizeSegment = async (segmentText: string, isLastSegment: boolean, lastSegmentSummary?: string) => {
+    let segmentSummary;
+    const summaryStream = await promptStreaming(
+      prompter,
+      "Summarize this entire text block into a few bullet points marinating all the important information and removing any duplicates.",
+      segmentText
+    );
+    if (summaryStream) {
+      const reader = summaryStream.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (isLastSegment) updateProgress(100);
+          return segmentSummary!;
+        } else {
+          const summarizedSoFarSize = lastSegmentSummary?.length || 0 + value.length;
+          const progress = Math.round((summarizedSoFarSize / estimatedSummarizedTextSize) * 100);
+          segmentSummary = value;
+          updateProgress(progress);
+        }
       }
     }
+    return "";
+  };
+
+  const segmentedTextChunkSize = 8000; // 8000 (Max number of character to use per prompt)  - System prompt = max letter count for segmented text to use
+  const segmentsToRewrite = splitString(trimmedText, segmentedTextChunkSize);
+  for (const [index, segment] of segmentsToRewrite.entries()) {
+    summary = summary + (await summarizeSegment(segment, index === segmentsToRewrite.length - 1, summary));
   }
+
   if (summary) {
-    await ChromeWrapper.setStorage(hash, summary);
-    return summary;
+    const condensedSummary = await prompt(
+      prompter,
+      "This is a summary, but it could contain duplicates, clean this summary up removing any duplicated information",
+      summary!
+    );
+    if (condensedSummary) {
+      await ChromeWrapper.setStorage(hash, condensedSummary);
+      return condensedSummary;
+    }
   }
 };
 
@@ -163,41 +220,52 @@ const rewriteText = async (
   });
   deletePrompterOnReset(prompter, tabId);
 
-  const rewrittenStream = await promptStreaming(
-    prompter,
-    "Keeping the same structure and without getting rid of the [] update each segment to be easily more understandable for a novice on the topic.",
-    segmentedText
-  );
-  if (rewrittenStream) {
-    const reader = rewrittenStream.getReader();
-    const bracketsRegex = /\[(\w+_id=(\d+))]/g;
-    const matches = segmentedText.match(bracketsRegex);
-    const totalElementsToRewrite = matches && matches.length;
-    if (!totalElementsToRewrite) {
-      alert(
-        "Something Went wrong! Please Try again and the extension does not work, contact the developers! Sorry for the incontinence!"
-      );
-      return;
-    }
-    let rewrittenElements: Record<string, boolean> = {};
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        updateProgress(100);
-        break;
-      } else {
-        const elementsToRender = /\[((\w+)_id=(\d+))]\s*([^[]+?)\s*\[\/\1\]/g;
-        let match;
-        while ((match = elementsToRender.exec(value)) !== null) {
-          const [_, __, elementTag, elementId, content] = match;
-          if (rewrittenElements[elementId]) continue;
-          rewriteElement(elementId, elementTag, content);
-          rewrittenElements[elementId] = true;
-          const progress = Math.round((Object.keys(rewrittenElements).length / totalElementsToRewrite) * 100);
-          updateProgress(progress);
+  const bracketsRegex = /\[(\w+_id=(\d+))]/g;
+  const matches = segmentedText.match(bracketsRegex);
+  const totalElementsToRewrite = matches && matches.length;
+  let rewrittenElements: Record<string, boolean> = {};
+  if (!totalElementsToRewrite) {
+    const error: AppError = {
+      code: ERROR_CODES.NO_TEXT_FOUND,
+      message: "Could Not find any text to edit",
+    };
+    throw new Error(JSON.stringify(error));
+  }
+
+  const rewriteSegment = async (segmentedText: string, isLastSegment: boolean) => {
+    const rewrittenStream = await promptStreaming(
+      prompter,
+      "Keeping the same structure and without getting rid of the [] update each segment to be easily more understandable for a novice on the topic.",
+      segmentedText
+    );
+
+    if (rewrittenStream) {
+      const reader = rewrittenStream.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (isLastSegment) updateProgress(100);
+          break;
+        } else {
+          const elementsToRender = /\[((\w+)_id=(\d+))]\s*([^[]+?)\s*\[\/\1\]/g;
+          let match;
+          while ((match = elementsToRender.exec(value)) !== null) {
+            const [_, __, elementTag, elementId, content] = match;
+            if (rewrittenElements[elementId]) continue;
+            rewriteElement(elementId, elementTag, content);
+            rewrittenElements[elementId] = true;
+            const progress = Math.round((Object.keys(rewrittenElements).length / totalElementsToRewrite) * 100);
+            updateProgress(progress);
+          }
         }
       }
     }
+  };
+
+  const segmentedTextChunkSize = 8000 - systemPrompt.length; // 8000 (Max number of character to use per prompt)  - System prompt = max letter count for segmented text to use
+  const segmentsToRewrite = splitString(segmentedText, segmentedTextChunkSize);
+  for (const [index, segment] of segmentsToRewrite.entries()) {
+    await rewriteSegment(segment, index === segmentsToRewrite.length - 1);
   }
 };
 

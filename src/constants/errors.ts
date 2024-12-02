@@ -1,0 +1,6 @@
+const ERROR_CODES = {
+  SOMETHING_WENT_WRONG: 1,
+  NO_TEXT_FOUND: 2,
+  PROMPTER_FAILED: 2,
+};
+export { ERROR_CODES };

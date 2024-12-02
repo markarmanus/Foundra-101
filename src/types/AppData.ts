@@ -1,3 +1,5 @@
+import { ERROR_CODES } from "../constants/errors";
+
 interface ReactAppState {
   selectedExplanationMode: {
     id: number;
@@ -18,4 +20,8 @@ interface LoadingStepData {
   paletteColor?: any;
 }
 
-export type { ReactAppState, LoadingStepData };
+interface AppError {
+  code: (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
+  message: string;
+}
+export type { ReactAppState, AppError, LoadingStepData };

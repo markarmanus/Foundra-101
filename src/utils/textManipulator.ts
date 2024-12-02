@@ -7,7 +7,7 @@ const splitString = (str: string, maxLength = 1024) => {
     let end = Math.min(start + maxLength, str.length);
     let lastNewline = str.lastIndexOf("\n", end);
     let lastSpace = str.lastIndexOf(" ", end);
-    let lastTextSegment = lastIndexOfRegex(str, /\[\/ \w+\]/g);
+    let lastTextSegment = lastIndexOfRegex(str, /\[\/\w+_id=\d+\]/g, end);
 
     if (lastTextSegment > start) {
       end = lastTextSegment;
@@ -16,6 +16,7 @@ const splitString = (str: string, maxLength = 1024) => {
     } else if (lastSpace > start) {
       end = lastSpace; // Otherwise, use space
     }
+    console.log(`Start is ${start} End is ${end}`);
 
     // If this is the last segment and it's smaller than maxLength, take the rest of the string
     if (end >= str.length || str.length - start <= maxLength) {
@@ -23,19 +24,24 @@ const splitString = (str: string, maxLength = 1024) => {
       break;
     }
     result.push(str.slice(start, end).trim());
-    start = end + 1; // Move past the delimiter
+    start = end; // Move past the delimiter
   }
 
   return result;
 };
 
-function lastIndexOfRegex(str: string, regex: RegExp) {
-  const matches = [...str.matchAll(regex)]; // Get all matches as an array
-  if (matches.length === 0) {
-    return -1; // No match found
+function lastIndexOfRegex(str: string, regex: RegExp, end: number) {
+  const substring = str.slice(0, end + 1);
+  const matches = Array.from(substring.matchAll(regex));
+  // Get the last match if there are any
+  if (matches.length > 0) {
+    const lastMatch = matches[matches.length - 1];
+    return lastMatch.index + lastMatch[0].length; // Calculate the end index of the last match
   }
-  return matches[matches.length - 1].index; // Return the index of the last match
+
+  return -1; // Return -1 if no match is found
 }
+
 function markdownToHtml(markdown: string): string {
   markdown = markdown.replace(/^(#{1,6})\s*(.+)$/gm, (match, hashes, content) => {
     const level = hashes.length;
