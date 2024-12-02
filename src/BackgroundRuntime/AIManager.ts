@@ -137,6 +137,11 @@ const rewriteText = async (
   6. Do not change the meaning of a sentence or lose any information from it.
   7. DO NOT CHANGE IT IF IT LOOKS LIKE CODE
   10. If you are explaining code use the appropriate markdown to wrap you text. 
+  11. ALWAYS USE FORMATTING
+  12. If you are explaining property, do not remove the name of the property name from the output.
+
+  MOST IMPORTANT RULE IS TO KEEP ALL NAMES OR NECESSARY INFORMATION 
+
 
   As a Guideline 
   ${explanationDetailsMap[generationModes.explanationMode]}
@@ -144,7 +149,7 @@ const rewriteText = async (
   ${summaryDetailsMap[generationModes.summaryMode]}
 
   Your goal is to simplify complicated terms, not to rewrite the text. if its already simple leave it as it is.
-  Example of modification is
+  Example of a modification is
   From [div_id=123] <code>Integer</code> pass an integer to generate a new number  [/div]
   To [div_id=123] pass a new number or type <code>Integer</code> for the code to generate a new number for you [/div]
 

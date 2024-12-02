@@ -9,7 +9,7 @@ const updatePageText = async (elementsToUpdate: ElementsMap) => {
 
     if (element && element.tagName === elementTag.toUpperCase()) {
       if (element.textContent !== elementContent) {
-        element.style.backgroundColor = `rgba(255, 158, 71, 0.3)`;
+        element.classList.add("highlight-text");
         element.innerHTML = elementContent;
       }
     }
@@ -92,4 +92,10 @@ const getPageSegmentedText = (): { segmentPageText: string } => {
   let bodyText = traverseDOM(document.body);
   return { segmentPageText: bodyText || "" };
 };
-export { getPageText, getPageSegmentedText, updatePageText };
+const addCSSToPage = (cssToAdd: string) => {
+  const styleElement = document.createElement("style");
+  styleElement.innerHTML = cssToAdd;
+  document.head.appendChild(styleElement);
+};
+
+export { getPageText, getPageSegmentedText, updatePageText, addCSSToPage };

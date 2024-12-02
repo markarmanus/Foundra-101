@@ -96,11 +96,17 @@ function App() {
   const [selectedExplanationMode, SetSelectedExplanationMode] = useState(explanationModeData[EXPLANATION_MODES.NOVICE]);
   const [selectedSummaryMode, setSelectedSummaryMode] = useState(summarizationModeData[SUMMARIZATION_MODES.AS_IS]);
   const [readyToRender, setReadyToRender] = useState(false);
+  const [isDone, setIsDone] = useState(false);
   const [tabId, setTabId] = useState<number | undefined>();
   const [loadingData, setLoadingData] = useState<LoadingStepData[]>(initialLoadingData);
   const controls = useAnimation();
   const [loading, setLoading] = useState(false);
 
+  const checkIfDone = () => {
+    if (loadingData.every((step) => step.progress === 100)) {
+      setIsDone(true);
+    }
+  };
   //Step 1: Get Tha Tab Id and Store it
   const initializeExtension = async () => {
     overRideLocalHost();
@@ -118,6 +124,7 @@ function App() {
       setTabId(tabId);
       getInitialAppData(tabId);
       listenToStateUpdates();
+      checkIfDone();
     }
   }, [tabId]);
 
@@ -156,6 +163,15 @@ function App() {
     sendReactAppStateUpdateEvent(appState);
   }, [selectedSummaryMode, selectedExplanationMode, loading]);
 
+  useEffect(() => {
+    checkIfDone();
+  }, [loadingData]);
+
+  useEffect(() => {
+    if (isDone) {
+      controls.start("paused");
+    }
+  }, [isDone]);
   const applyAppState = (appState: ReactAppState) => {
     if (appState.tabId === tabId) {
       SetSelectedExplanationMode(explanationModeData[appState.selectedExplanationMode.id]);
@@ -181,6 +197,7 @@ function App() {
   const reset = () => {
     setLoadingData(initialLoadingData);
     setLoading(false);
+    setIsDone(false);
     sendReactAppStateUpdateEvent({
       loadingData: initialLoadingData,
       isGenerating: false,
@@ -265,7 +282,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (loading) {
+    if (loading && !isDone) {
       document.getElementById("logo")?.classList.add("rotating");
       controls.start("rotating");
     } else {
@@ -340,6 +357,11 @@ function App() {
                   >
                     {getLoadingStepComponents()}
                   </Stack>
+                )}
+                {isDone && (
+                  <Typography>
+                    Any Text highted in Purple has been simplified for you convince! Thanks for using our product!
+                  </Typography>
                 )}
                 {!loading && (
                   <Container sx={{ minHeight: middleContainerMinHeight, overflow: "hidden" }}>

@@ -10,9 +10,10 @@ import {
 import { updateLoadingStepData } from "./extensionRunTimeAPI";
 import { LOADING_STEPS } from "../constants/loadingSteps";
 import AIManager from "./AIManager";
-import { getTabSegmentedText, updateTabText } from "../ExtensionRuntime/TabScripter";
+import { addCSSToTab, getTabSegmentedText, updateTabText } from "../ExtensionRuntime/TabScripter";
 import { ReactAppState } from "../types/AppData";
 import { markdownToHtml } from "../utils/textManipulator";
+import { editedElementsCSS } from "./CSSHelper";
 
 const handleLogEvent = async (event: Event) => {
   const typedEvent = event as LogConsoleMsgEvent;
@@ -49,10 +50,29 @@ const handleResetEvent = async (event: Event) => {
   const tabId = typedEvent.tabId.toFixed();
   await ChromeWrapper.deleteStorage(tabId);
 };
+let fakeWaitTime = 500;
 
 const handleGenerateEvent = async (event: Event) => {
   const typedEvent = event as GenerateEvent;
   const tabId = typedEvent.tabId;
+  const pageText = typedEvent.pageText;
+  const wait = (time: number) =>
+    new Promise<void>((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, time);
+    });
+
+  /*
+ ---------Step 1-------
+ */
+  updateLoadingStepData(
+    {
+      label: LOADING_STEPS.GATHERING_INFO,
+      progress: 50,
+    },
+    tabId
+  );
   updateLoadingStepData(
     {
       label: LOADING_STEPS.GATHERING_INFO,
@@ -61,8 +81,9 @@ const handleGenerateEvent = async (event: Event) => {
     tabId
   );
 
-  const pageText = typedEvent.pageText;
-
+  /*
+ ---------Step 2-------
+ */
   const updateSummaryProgress = (progress: number) => {
     updateLoadingStepData(
       {
@@ -72,17 +93,55 @@ const handleGenerateEvent = async (event: Event) => {
       tabId
     );
   };
+  console.log(pageText);
   const summary = await AIManager.summarizeText(pageText, updateSummaryProgress, tabId);
 
+  /*
+ ---------Step 3-------
+ */
   const segmentedText = await getTabSegmentedText(tabId);
-  updateLoadingStepData(
+  await updateLoadingStepData(
+    {
+      label: LOADING_STEPS.SEGMENTING,
+      progress: 50,
+    },
+    tabId
+  );
+  console.log(segmentedText);
+  await updateLoadingStepData(
     {
       label: LOADING_STEPS.SEGMENTING,
       progress: 100,
     },
     tabId
   );
-  console.log(segmentedText);
+
+  /*
+ ---------Step 4-------
+ */
+  await updateLoadingStepData(
+    {
+      label: LOADING_STEPS.ALLOWING,
+      progress: 50,
+    },
+    tabId
+  );
+  await addCSSToTab(tabId, editedElementsCSS);
+  await updateLoadingStepData(
+    {
+      label: LOADING_STEPS.ALLOWING,
+      progress: 100,
+    },
+    tabId
+  );
+
+  /*
+ ---------Step 5-------
+ */
+  const rewriteElement = (elementId: string, elementTag: string, elementContent: string) => {
+    console.log(`TO ${elementContent}`);
+    updateTabText(tabId, [{ elementId, elementTag, elementContent: markdownToHtml(elementContent) }]);
+  };
   const updateRewriteProgress = (progress: number) => {
     updateLoadingStepData(
       {
@@ -92,11 +151,6 @@ const handleGenerateEvent = async (event: Event) => {
       tabId
     );
   };
-  const rewriteElement = (elementId: string, elementTag: string, elementContent: string) => {
-    console.log(`Updating: ${elementTag}_${elementId} TO: ${elementContent}`);
-    updateTabText(tabId, [{ elementId, elementTag, elementContent: markdownToHtml(elementContent) }]);
-  };
-
   const appStateJSON = await ChromeWrapper.getStorage(tabId.toFixed());
   if (appStateJSON) {
     const appState: ReactAppState = JSON.parse(appStateJSON);
