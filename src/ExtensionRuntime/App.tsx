@@ -11,8 +11,9 @@ import {
   sendExtensionOpenMsg,
   sendGenerateMsg,
   sendReactAppStateUpdateEvent,
+  sendResetEvent,
 } from "./backgroundServiceAPI";
-import { Chip, Container, ContainerProps, Stack, StackProps, Typography } from "@mui/material";
+import { Chip, Container, Stack, Typography } from "@mui/material";
 import { EXPLANATION_MODES, SUMMARIZATION_MODES } from "../constants/modes";
 import {
   AssistWalkerRounded,
@@ -137,7 +138,7 @@ function App() {
   // Step 3: Apply State updates When update comes from Service App
   const listenToStateUpdates = () => {
     chrome.runtime.onMessage.addListener((event: Event, sender) => {
-      if (event.type === MSG_TYPES.ReactAppStateUpdateEvent) {
+      if (event.type === MSG_TYPES.REACT_APP_STATE_UPDATE_EVENT) {
         applyAppState(event.appState);
       }
     });
@@ -187,6 +188,7 @@ function App() {
       selectedSummaryMode,
       tabId,
     });
+    sendResetEvent(tabId!);
   };
 
   // Render Logic

@@ -28,7 +28,6 @@ const splitString = (str: string, maxLength = 1024) => {
 
   return result;
 };
-export { splitString };
 
 function lastIndexOfRegex(str: string, regex: RegExp) {
   const matches = [...str.matchAll(regex)]; // Get all matches as an array
@@ -37,3 +36,37 @@ function lastIndexOfRegex(str: string, regex: RegExp) {
   }
   return matches[matches.length - 1].index; // Return the index of the last match
 }
+function markdownToHtml(markdown: string) {
+  // Convert headings (e.g., # Heading => <h1>Heading</h1>)
+  markdown = markdown.replace(/^(#{1,6})\s*(.+)$/gm, (match, hashes, content) => {
+    const level = hashes.length; // Get the heading level (1 to 6)
+    return `<h${level}>${content}</h${level}>`;
+  });
+
+  // Convert bold text (e.g., **bold** => <strong>bold</strong>)
+  markdown = markdown.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+  // Convert italic text (e.g., *italic* => <em>italic</em>)
+  markdown = markdown.replace(/\*(.*?)\*/g, "<em>$1</em>");
+
+  // Convert unordered lists (e.g., - item => <ul><li>item</li></ul>)
+  markdown = markdown.replace(/^-\s*(.*?)$/gm, "<ul><li>$1</li></ul>");
+
+  // Convert ordered lists (e.g., 1. item => <ol><li>item</li></ol>)
+  markdown = markdown.replace(/^\d+\.\s*(.*?)$/gm, "<ol><li>$1</li></ol>");
+
+  // Convert links (e.g., [text](url) => <a href="url">text</a>)
+  markdown = markdown.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+  // Convert inline code (e.g., `code` => <code>code</code>)
+  markdown = markdown.replace(/`(.*?)`/g, "<code>$1</code>");
+
+  // Convert paragraphs (non-empty lines not matching other rules will be treated as paragraphs)
+  markdown = markdown.replace(/([^<\n].*?)\n/g, "<p>$1</p>\n");
+
+  // Handle line breaks (two spaces at the end of the line for Markdown line breaks)
+  markdown = markdown.replace(/  \n/g, "<br>\n");
+
+  return markdown;
+}
+export { splitString, markdownToHtml };

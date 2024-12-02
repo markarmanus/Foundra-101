@@ -1,14 +1,17 @@
+import { ElementsMap } from "../types/elements";
+
 const getPageText = (): { text: string; document: Document } => {
   return { text: document.body.outerHTML, document };
 };
-const updatePageText = async (textMap: { [id: string]: string }) => {
-  console.log(textMap);
-  Object.entries(textMap).forEach(([elementId, newValue]) => {
+const updatePageText = async (elementsToUpdate: ElementsMap) => {
+  elementsToUpdate.forEach(({ elementId, elementTag, elementContent }) => {
     const element = document.getElementById(elementId);
 
-    if (element) {
-      element.style.backgroundColor = `rgba(255, 158, 71, 0.3)`;
-      element.textContent = newValue;
+    if (element && element.tagName === elementTag.toUpperCase()) {
+      if (element.textContent !== elementContent) {
+        element.style.backgroundColor = `rgba(255, 158, 71, 0.3)`;
+        element.innerHTML = elementContent;
+      }
     }
   });
 };
@@ -17,10 +20,10 @@ const getPageSegmentedText = (): { segmentPageText: string } => {
   function traverseDOM(element: HTMLElement) {
     let result = "";
 
-    const elementsToSkip = ["NAV", "PRE", "STYLE", "SCRIPT", "NOSCRIPT", "HEADER", "FOOTER", "A", "CODE"];
-
+    const elementsToSkip = ["NAV", "PRE", "STYLE", "SCRIPT", "NOSCRIPT", "HEADER", "FOOTER"];
     if (elementsToSkip.includes(element.nodeName)) return "";
-    if (element.nodeType === Node.TEXT_NODE) {
+
+    if (element.nodeType === Node.TEXT_NODE || element.nodeName === "CODE") {
       // Process the text content of the element
       return element.textContent?.trim();
     }
@@ -28,8 +31,6 @@ const getPageSegmentedText = (): { segmentPageText: string } => {
     if (getComputedStyle(element).display === "none" || getComputedStyle(element).visibility === "hidden") {
       return "";
     }
-
-    if (!element.innerText) return "";
 
     // Process element nodes (e.g., div, a, p, etc.)
     if (element.nodeType === Node.ELEMENT_NODE) {
@@ -53,7 +54,7 @@ const getPageSegmentedText = (): { segmentPageText: string } => {
       }
 
       // Construct the closing tag with the same format
-      let closingTag = `[/${tag}]`;
+      let closingTag = `[/${tag}_id=${element.id}]`;
 
       function hasDirectText(element: HTMLElement) {
         // Iterate through the child nodes of the element

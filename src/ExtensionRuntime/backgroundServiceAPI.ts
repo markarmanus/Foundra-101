@@ -3,7 +3,7 @@ import { ReactAppState } from "../types/AppData";
 import { getTabText } from "./TabScripter";
 
 const sendLogToBackground = (logMsg: any, logType: string) => {
-  chrome.runtime.sendMessage({ type: MSG_TYPES.LogConsoleMsgEvent, logType, logMsg: JSON.stringify(logMsg) });
+  chrome.runtime.sendMessage({ type: MSG_TYPES.LOG_CONSOLE_MSG_EVENT, logType, logMsg: JSON.stringify(logMsg) });
 };
 const overRideLocalHost = () => {
   window.console.log = (msg: any) => {
@@ -21,7 +21,7 @@ const sendExtensionOpenMsg = async (appState: ReactAppState) => {
   return new Promise(async (resolve) => {
     await chrome.runtime.sendMessage(
       {
-        type: MSG_TYPES.ExtensionOpenedEvent,
+        type: MSG_TYPES.EXTENSION_OPENED_EVENT,
         appState,
       },
       (res) => {
@@ -34,7 +34,7 @@ const sendExtensionOpenMsg = async (appState: ReactAppState) => {
 const sendGenerateMsg = async (tabId: number) => {
   const pageText = await getTabText(tabId);
   return await chrome.runtime.sendMessage({
-    type: MSG_TYPES.GenerateEvent,
+    type: MSG_TYPES.GENERATE_EVENT,
     tabId,
     pageText,
   });
@@ -43,7 +43,7 @@ const sendReactAppStateUpdateEvent = async (appState: ReactAppState) => {
   return new Promise(async (resolve) => {
     await chrome.runtime.sendMessage(
       {
-        type: MSG_TYPES.ReactAppStateUpdateEvent,
+        type: MSG_TYPES.REACT_APP_STATE_UPDATE_EVENT,
         appState,
       },
       (res) => {
@@ -52,4 +52,17 @@ const sendReactAppStateUpdateEvent = async (appState: ReactAppState) => {
     );
   });
 };
-export { overRideLocalHost, sendGenerateMsg, sendExtensionOpenMsg, sendReactAppStateUpdateEvent };
+const sendResetEvent = async (tabId: number) => {
+  return new Promise(async (resolve) => {
+    await chrome.runtime.sendMessage(
+      {
+        type: MSG_TYPES.RESET_EVENT,
+        tabId,
+      },
+      (res) => {
+        resolve(res);
+      }
+    );
+  });
+};
+export { overRideLocalHost, sendGenerateMsg, sendExtensionOpenMsg, sendReactAppStateUpdateEvent, sendResetEvent };

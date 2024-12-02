@@ -12,6 +12,7 @@ interface ExtensionOpenedEvent {
 interface ExtensionClosedEvent {
   type: "ExtensionClosedEvent";
   pageText: string;
+  tabId: number;
 }
 
 interface ReactAppStateUpdateEvent {
@@ -23,13 +24,18 @@ interface GenerateEvent {
   pageText: string;
   tabId: number;
 }
+interface ResetEvent {
+  type: "ResetEvent";
+  tabId: number;
+}
 
 type Event =
   | ExtensionClosedEvent
   | ExtensionOpenedEvent
   | LogConsoleMsgEvent
   | ReactAppStateUpdateEvent
-  | GenerateEvent;
+  | GenerateEvent
+  | ResetEvent;
 
 export type {
   ReactAppStateUpdateEvent,
@@ -38,4 +44,5 @@ export type {
   LogConsoleMsgEvent,
   Event,
   GenerateEvent,
+  ResetEvent,
 };

@@ -1,6 +1,7 @@
 import { getPageText, getPageSegmentedText, updatePageText } from "../TabRuntime/DOMInterpreter";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom"; // We need jsdom to create a virtual DOM for Readability
+import { ElementsMap } from "../types/elements";
 
 const getTabSegmentedText = async (tabId: number): Promise<string> => {
   const result = await chrome.scripting.executeScript({
@@ -14,13 +15,10 @@ const getTabSegmentedText = async (tabId: number): Promise<string> => {
   return "";
 };
 
-const updateTabText = async (
-  tabId: number,
-  textMap: { [id: string]: string }
-): Promise<{ status: "Success" | "Fail" }> => {
+const updateTabText = async (tabId: number, elementsMap: ElementsMap): Promise<{ status: "Success" | "Fail" }> => {
   const result = await chrome.scripting.executeScript({
     target: { tabId },
-    args: [textMap],
+    args: [elementsMap],
     func: updatePageText,
   });
   if (result && result[0] && result[0].result) {

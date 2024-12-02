@@ -16,7 +16,7 @@ const updateLoadingStepData = async (loadingStep: LoadingStepData, tabId: number
       };
       ChromeWrapper.setStorage(tabId.toFixed(), JSON.stringify(newAppState));
       chrome.runtime.sendMessage({
-        type: MSG_TYPES.ReactAppStateUpdateEvent,
+        type: MSG_TYPES.REACT_APP_STATE_UPDATE_EVENT,
         appState: newAppState,
       });
     }
