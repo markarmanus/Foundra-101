@@ -1,7 +1,18 @@
 import { getPageText, getPageSegmentedText, updatePageText, addCSSToPage } from "../TabRuntime/DOMInterpreter";
 import { Readability } from "@mozilla/readability";
-import { JSDOM } from "jsdom"; // We need jsdom to create a virtual DOM for Readability
 import { ElementsMap } from "../types/elements";
+
+const getCurrentTab = (): Promise<chrome.tabs.Tab> => {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+      } else {
+        resolve(tabs[0]);
+      }
+    });
+  });
+};
 
 const getTabSegmentedText = async (tabId: number): Promise<string> => {
   const result = await chrome.scripting.executeScript({
@@ -54,4 +65,4 @@ const getTabText = async (tabId: number): Promise<string> => {
   }
   return "";
 };
-export { getTabText, getTabSegmentedText, updateTabText, addCSSToTab };
+export { getTabText, getTabSegmentedText, updateTabText, addCSSToTab, getCurrentTab };

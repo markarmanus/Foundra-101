@@ -10,7 +10,7 @@ import {
 import { updateLoadingStepData } from "./extensionRunTimeAPI";
 import { LOADING_STEPS } from "../constants/loadingSteps";
 import AIManager from "./AIManager";
-import { addCSSToTab, getTabSegmentedText, updateTabText } from "../ExtensionRuntime/TabScripter";
+import { addCSSToTab, getTabSegmentedText, updateTabText } from "../ExtensionRuntime/TabRuntimeAPI";
 import { ReactAppState } from "../types/AppData";
 import { markdownToHtml } from "../utils/textManipulator";
 import { editedElementsCSS } from "./CSSHelper";

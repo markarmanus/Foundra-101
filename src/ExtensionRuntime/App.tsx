@@ -31,10 +31,10 @@ import { Line } from "rc-progress";
 import { AnimatePresence, motion, useAnimation } from "motion/react";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { LoadingStepData, ReactAppState } from "../types/AppData";
-import { getCurrentTab } from "./currentPageExecuter";
 import { Event } from "../types/crossRuntimeEvents";
 import { MSG_TYPES } from "../constants/crossRuntimeMsgs";
 import { LOADING_STEPS } from "../constants/loadingSteps";
+import { getCurrentTab } from "./TabRuntimeAPI";
 
 const theme = createTheme({
   palette: {
