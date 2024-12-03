@@ -1,6 +1,6 @@
 import { MSG_TYPES } from "../constants/crossRuntimeMsgs";
 import { ReactAppState } from "../types/AppData";
-import { getTabText } from "./TabRuntimeAPI";
+import { getTabText } from "../TabRuntimeAPI";
 
 const sendLogToBackground = (logMsg: any, logType: string) => {
   chrome.runtime.sendMessage({ type: MSG_TYPES.LOG_CONSOLE_MSG_EVENT, logType, logMsg: JSON.stringify(logMsg) });

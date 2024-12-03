@@ -10,7 +10,7 @@ import {
 import { updateLoadingStepData } from "./extensionRunTimeAPI";
 import { LOADING_STEPS } from "../constants/loadingSteps";
 import AIManager from "./AIManager";
-import { addCSSToTab, getTabSegmentedText, updateTabText } from "../ExtensionRuntime/TabRuntimeAPI";
+import { addCSSToTab, getTabSegmentedText, updateTabText } from "../TabRuntimeAPI";
 import { ReactAppState } from "../types/AppData";
 import { markdownToHtml } from "../utils/textManipulator";
 import { editedElementsCSS } from "./CSSHelper";
@@ -50,9 +50,9 @@ const handleResetEvent = async (event: Event) => {
   const tabId = typedEvent.tabId.toFixed();
   await ChromeWrapper.deleteStorage(tabId);
 };
-let fakeWaitTime = 800;
 
 const handleGenerateEvent = async (event: Event) => {
+  let fakeWaitTime = 800;
   const typedEvent = event as GenerateEvent;
   const tabId = typedEvent.tabId;
   const pageText = typedEvent.pageText;
@@ -107,7 +107,6 @@ const handleGenerateEvent = async (event: Event) => {
     },
     tabId
   );
-  console.log(segmentedText);
   wait(fakeWaitTime);
   await updateLoadingStepData(
     {
@@ -141,7 +140,6 @@ const handleGenerateEvent = async (event: Event) => {
  ---------Step 5-------
  */
   const rewriteElement = (elementId: string, elementTag: string, elementContent: string) => {
-    console.log(`TO ${elementContent}`);
     updateTabText(tabId, [{ elementId, elementTag, elementContent: markdownToHtml(elementContent) }]);
   };
   const updateRewriteProgress = (progress: number) => {

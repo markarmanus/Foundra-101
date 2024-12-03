@@ -1,6 +1,6 @@
-import { getPageText, getPageSegmentedText, updatePageText, addCSSToPage } from "../TabRuntime/DOMInterpreter";
+import { getPageText, getPageSegmentedText, updatePageText, addCSSToPage } from "./TabRuntime/DOMInterpreter";
 import { Readability } from "@mozilla/readability";
-import { ElementsMap } from "../types/elements";
+import { ElementsMap } from "./types/elements";
 
 const getCurrentTab = (): Promise<chrome.tabs.Tab> => {
   return new Promise((resolve, reject) => {
@@ -65,4 +65,19 @@ const getTabText = async (tabId: number): Promise<string> => {
   }
   return "";
 };
-export { getTabText, getTabSegmentedText, updateTabText, addCSSToTab, getCurrentTab };
+
+const alertTab = async (tabId: number, message: string): Promise<{ status: "Success" | "Fail" }> => {
+  const result = await chrome.scripting.executeScript({
+    target: { tabId },
+    args: [message],
+    func: (message: string) => {
+      alert(message);
+    },
+  });
+  if (result && result[0] && result[0].result) {
+    return { status: "Success" };
+  } else {
+    return { status: "Fail" };
+  }
+};
+export { getTabText, getTabSegmentedText, updateTabText, addCSSToTab, getCurrentTab, alertTab };

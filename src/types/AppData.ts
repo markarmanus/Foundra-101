@@ -22,6 +22,7 @@ interface LoadingStepData {
 
 interface AppError {
   code: (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
+  tabId: number;
   message: string;
 }
 export type { ReactAppState, AppError, LoadingStepData };

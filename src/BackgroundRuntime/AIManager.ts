@@ -7,6 +7,8 @@ import { splitString } from "../utils/textManipulator";
 import { ERROR_CODES } from "../constants/errors";
 import { AppError } from "../types/AppData";
 
+const maxRetries = 5;
+
 const deletePrompterOnReset = (prompt: AILanguageModel, tabId: number) => {
   const deleteFn = (event: Event) => {
     if (event.type === MSG_TYPES.RESET_EVENT) {
@@ -30,10 +32,10 @@ const promptStreaming = async (
   prompter: AILanguageModel,
   request: string,
   data: string,
+  onFail: (e: any) => void,
   context?: string,
-  retries = 3
+  attempt = 0
 ): Promise<ReadableStream<string> | undefined> => {
-  let attempts = 0;
   let stream;
   try {
     stream = await prompter.promptStreaming(
@@ -47,14 +49,12 @@ const promptStreaming = async (
        `
     );
   } catch (e) {
-    if (retries > attempts) {
-      return promptStreaming(prompter, request, data, context, attempts++);
+    if (attempt < maxRetries) {
+      console.error("Prompter Failed! Attempt" + attempt);
+      return promptStreaming(prompter, request, data, onFail, context, ++attempt);
     } else {
-      const error: AppError = {
-        code: ERROR_CODES.PROMPTER_FAILED,
-        message: `Failed ${retries} times to process the text.`,
-      };
-      throw new Error(JSON.stringify(error));
+      await prompter.destroy();
+      onFail(e);
     }
   }
 
@@ -64,11 +64,10 @@ const prompt = async (
   prompter: AILanguageModel,
   request: string,
   data: string,
+  onFail: (e: any) => void,
   context?: string,
-  retries = 3
+  attempt = 0
 ): Promise<string | undefined> => {
-  let attempts = 0;
-  let stream;
   try {
     return await prompter.prompt(
       `
@@ -81,14 +80,12 @@ const prompt = async (
        `
     );
   } catch (e) {
-    if (retries > attempts) {
-      return prompt(prompter, request, data, context, attempts++);
+    if (attempt < maxRetries) {
+      console.error("Prompter Failed! Attempt" + attempt);
+      return prompt(prompter, request, data, onFail, context, ++attempt);
     } else {
-      const error: AppError = {
-        code: ERROR_CODES.PROMPTER_FAILED,
-        message: `Failed ${retries} times to process the text.`,
-      };
-      throw new Error(JSON.stringify(error));
+      await prompter.destroy();
+      onFail(e);
     }
   }
 };
@@ -111,6 +108,14 @@ const summarizeText = async (
     systemPrompt:
       "Your an expert on all of the internet, your job is to help summarize webpages maintain the important information and removing any thin unnecessary. TRY TO MAKE IT SUPER SHORT ",
   });
+  const onPrompterFail = (e: any) => {
+    const error: AppError = {
+      code: ERROR_CODES.PROMPTER_FAILED,
+      tabId,
+      message: `Failed ${maxRetries} times to process the text. Error Msg: ${(e as Error).message}`,
+    };
+    throw error;
+  };
   deletePrompterOnReset(prompter, tabId);
 
   const summarizationRate = 5;
@@ -121,7 +126,8 @@ const summarizeText = async (
     const summaryStream = await promptStreaming(
       prompter,
       "Summarize this entire text block into a few bullet points marinating all the important information and removing any duplicates.",
-      segmentText
+      segmentText,
+      onPrompterFail
     );
     if (summaryStream) {
       const reader = summaryStream.getReader();
@@ -151,7 +157,8 @@ const summarizeText = async (
     const condensedSummary = await prompt(
       prompter,
       "This is a summary, but it could contain duplicates, clean this summary up removing any duplicated information",
-      summary!
+      summary!,
+      onPrompterFail
     );
     if (condensedSummary) {
       await ChromeWrapper.setStorage(hash, condensedSummary);
@@ -172,9 +179,14 @@ const rewriteText = async (
   tabId: number
 ) => {
   const explanationDetailsMap = {
-    [EXPLANATION_MODES.BEGINNER]:
-      "You are explaining this to a beginner on the topic, he is familiar but at a surface level",
-    [EXPLANATION_MODES.NOVICE]: "You are explaning this to a complete novice, he knows nothing about this topic.",
+    [EXPLANATION_MODES.BEGINNER]: `You are explaining this to a beginner on the topic, he is familiar but at a surface level
+      
+       MOST IMPORTANT RULE:  Explain all acronyms into text between brackets
+      `,
+    [EXPLANATION_MODES.NOVICE]: `You are explaning this to a complete novice, he knows nothing about this topic.
+    
+      MOST IMPORTANT RULE:  Explain all acronyms into text between brackets
+    `,
     [EXPLANATION_MODES.EXPERIENCED]:
       "You are explaining this to someone who has decent amount of experience on the topic, only simply very complicated things ",
   };
@@ -196,7 +208,7 @@ const rewriteText = async (
   10. If you are explaining code use the appropriate markdown to wrap you text. 
   11. ALWAYS USE FORMATTING
   12. If you are explaining property, do not remove the name of the property name from the output.
-
+  
   MOST IMPORTANT RULE IS TO KEEP ALL NAMES OR NECESSARY INFORMATION 
 
 
@@ -218,6 +230,14 @@ const rewriteText = async (
   const prompter = await ai.languageModel.create({
     systemPrompt,
   });
+  const onPrompterFail = async (e: any) => {
+    const error: AppError = {
+      code: ERROR_CODES.PROMPTER_FAILED,
+      tabId,
+      message: `Failed ${maxRetries} times to process the text. Error Msg: ${(e as Error).message}`,
+    };
+    throw error;
+  };
   deletePrompterOnReset(prompter, tabId);
 
   const bracketsRegex = /\[(\w+_id=(\d+))]/g;
@@ -227,16 +247,18 @@ const rewriteText = async (
   if (!totalElementsToRewrite) {
     const error: AppError = {
       code: ERROR_CODES.NO_TEXT_FOUND,
+      tabId,
       message: "Could Not find any text to edit",
     };
-    throw new Error(JSON.stringify(error));
+    throw error;
   }
 
   const rewriteSegment = async (segmentedText: string, isLastSegment: boolean) => {
     const rewrittenStream = await promptStreaming(
       prompter,
       "Keeping the same structure and without getting rid of the [] update each segment to be easily more understandable for a novice on the topic.",
-      segmentedText
+      segmentedText,
+      onPrompterFail
     );
 
     if (rewrittenStream) {

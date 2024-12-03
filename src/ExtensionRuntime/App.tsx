@@ -34,7 +34,7 @@ import { LoadingStepData, ReactAppState } from "../types/AppData";
 import { Event } from "../types/crossRuntimeEvents";
 import { MSG_TYPES } from "../constants/crossRuntimeMsgs";
 import { LOADING_STEPS } from "../constants/loadingSteps";
-import { getCurrentTab } from "./TabRuntimeAPI";
+import { getCurrentTab } from "../TabRuntimeAPI";
 
 const theme = createTheme({
   palette: {
@@ -97,6 +97,8 @@ function App() {
   const [selectedSummaryMode, setSelectedSummaryMode] = useState(summarizationModeData[SUMMARIZATION_MODES.AS_IS]);
   const [readyToRender, setReadyToRender] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  const [canRunAI, setCanRunAI] = useState(false);
+  const [aiDownloadProgress, setAIDownloadProgress] = useState(0);
   const [tabId, setTabId] = useState<number | undefined>();
   const [loadingData, setLoadingData] = useState<LoadingStepData[]>(initialLoadingData);
   const controls = useAnimation();
@@ -107,15 +109,43 @@ function App() {
       setIsDone(true);
     }
   };
+
+  const checkAIAccessibility = async () => {
+    if (!ai || !ai.languageModel) {
+      setCanRunAI(false);
+    } else {
+      const capabilities = await ai.languageModel.capabilities();
+      if (!capabilities.available) {
+        await ai.languageModel.create({
+          monitor(m) {
+            m.addEventListener("downloadprogress", (e) => {
+              console.log(`Downloaded ${e.loaded} of ${e.total} bytes.`);
+              setAIDownloadProgress(e.loaded / e.total);
+            });
+          },
+        });
+        setAIDownloadProgress(100);
+        setCanRunAI(true);
+      } else {
+        setCanRunAI(true);
+      }
+    }
+  };
   //Step 1: Get Tha Tab Id and Store it
   const initializeExtension = async () => {
+    checkAIAccessibility();
     overRideLocalHost();
     const tabId = (await getCurrentTab()).id;
     setTabId(tabId);
   };
 
   useEffect(() => {
-    initializeExtension();
+    if (canRunAI) {
+      initializeExtension();
+    }
+  }, [canRunAI]);
+  useEffect(() => {
+    checkAIAccessibility();
   }, []);
 
   // Step 2: Get Stored App Data If it Exists
@@ -281,6 +311,31 @@ function App() {
     );
   };
 
+  const getNoAIComponents = () => {
+    if (!canRunAI) {
+      if (aiDownloadProgress > 0) {
+        return (
+          <>
+            <Typography>We have to download the AI model, Sorry for the wait!</Typography>
+            <Line
+              percent={aiDownloadProgress}
+              strokeWidth={3}
+              trailWidth={3}
+              strokeColor={theme.palette.secondary.main}
+            />
+          </>
+        );
+      } else {
+        return (
+          <Typography>
+            It seems that AI is not supported on your current browser version, Please download the latest Canary version
+            before using this tool!
+          </Typography>
+        );
+      }
+    }
+  };
+
   useEffect(() => {
     if (loading && !isDone) {
       document.getElementById("logo")?.classList.add("rotating");
@@ -346,7 +401,8 @@ function App() {
             }}
           />
         </Container>
-        {readyToRender && (
+        {getNoAIComponents()}
+        {readyToRender && canRunAI && (
           <>
             <Container
               sx={{ minHeight: middleContainerMinHeight, minWidth: middleContainerMinWidth, margin: "20px 0px" }}

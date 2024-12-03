@@ -10,6 +10,9 @@ import {
 } from "./extensionRunTimeMsgHandler";
 
 import { Event } from "../types/crossRuntimeEvents";
+import { AppError } from "../types/AppData";
+import { ERROR_CODES } from "../constants/errors";
+import { alertTab } from "../TabRuntimeAPI";
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === "complete") {
     handleResetEvent({
@@ -18,7 +21,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     });
   }
 });
-chrome.runtime.onMessage.addListener((event: Event, _, sendResponse) => {
+
+const handlerWrapper = async (eventType: Event["type"], event: Event, sendResponse: (response?: any) => void) => {
   const handlers: Record<Event["type"], (event: Event, sendResponse: (res: any) => void) => Promise<void>> = {
     [MSG_TYPES.LOG_CONSOLE_MSG_EVENT]: handleLogEvent,
     [MSG_TYPES.EXTENSION_OPENED_EVENT]: handleExtensionOpenedEvent,
@@ -28,20 +32,38 @@ chrome.runtime.onMessage.addListener((event: Event, _, sendResponse) => {
     [MSG_TYPES.RESET_EVENT]: handleResetEvent,
   };
   try {
-    const eventType = event.type;
     if (handlers[eventType]) {
-      handlers[eventType](event, sendResponse);
+      await handlers[eventType](event, sendResponse);
     }
-
-    return true;
   } catch (error) {
-    if (error instanceof Error) {
-      const errorData = {
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-      };
-      console.error(errorData);
+    const typedError = error as AppError;
+    console.log(error);
+
+    if (typedError.tabId) {
+      const terminalCodes = [ERROR_CODES.NO_TEXT_FOUND, ERROR_CODES.PROMPTER_FAILED, ERROR_CODES.SOMETHING_WENT_WRONG];
+
+      if (terminalCodes.includes(typedError.code)) {
+        const tabId = typedError.tabId;
+        console.log(tabId);
+
+        const tabTitle = (await chrome.tabs.get(typedError.tabId)).title;
+        alertTab(
+          tabId,
+          `Foundra-101: It seems that something has went wrong for the ${tabTitle} Tab, Please try using the extension again.
+
+          Note: Currently the extension does not support all webpages!`
+        );
+        handleResetEvent({
+          type: MSG_TYPES.RESET_EVENT,
+          tabId,
+        });
+      }
     }
   }
+};
+
+chrome.runtime.onMessage.addListener((event: Event, _, sendResponse) => {
+  const eventType = event.type;
+  handlerWrapper(eventType, event, sendResponse);
+  return true;
 });
