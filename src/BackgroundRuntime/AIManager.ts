@@ -38,6 +38,7 @@ const promptStreaming = async (
 ): Promise<ReadableStream<string> | undefined> => {
   let stream;
   try {
+    console.log(data);
     stream = await prompter.promptStreaming(
       `
         ${context ? "Using The following block as context" + context : ""}
@@ -154,15 +155,20 @@ const summarizeText = async (
   }
 
   if (summary) {
-    const condensedSummary = await prompt(
-      prompter,
-      "This is a summary, but it could contain duplicates, clean this summary up removing any duplicated information",
-      summary!,
-      onPrompterFail
-    );
-    if (condensedSummary) {
-      await ChromeWrapper.setStorage(hash, condensedSummary);
-      return condensedSummary;
+    if (segmentsToRewrite.length > 3) {
+      const condensedSummary = await prompt(
+        prompter,
+        "This is a summary, but it could contain duplicates, clean this summary up removing any duplicated information",
+        summary!,
+        onPrompterFail
+      );
+      if (condensedSummary) {
+        await ChromeWrapper.setStorage(hash, condensedSummary);
+        return condensedSummary;
+      }
+    } else {
+      await ChromeWrapper.setStorage(hash, summary);
+      return summary;
     }
   }
 };
@@ -209,7 +215,7 @@ const rewriteText = async (
   11. ALWAYS USE FORMATTING
   12. If you are explaining property, do not remove the name of the property name from the output.
   
-  MOST IMPORTANT RULE IS TO KEEP ALL NAMES OR NECESSARY INFORMATION 
+  MOST IMPORTANT RULE IS TO KEEP ALL NAMES OR NECESSARY INFORMATION BUT EXPLAIN EVERYTHING ESPECIALLY MEDICAL/TECHNOLOGICAL TERMS
 
 
   As a Guideline 

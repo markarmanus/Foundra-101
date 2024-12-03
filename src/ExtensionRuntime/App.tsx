@@ -99,6 +99,7 @@ function App() {
   const [isDone, setIsDone] = useState(false);
   const [canRunAI, setCanRunAI] = useState(false);
   const [aiDownloadProgress, setAIDownloadProgress] = useState(0);
+  const [isSupportedPage, setIsSupportedPage] = useState(true);
   const [tabId, setTabId] = useState<number | undefined>();
   const [loadingData, setLoadingData] = useState<LoadingStepData[]>(initialLoadingData);
   const controls = useAnimation();
@@ -107,6 +108,13 @@ function App() {
   const checkIfDone = () => {
     if (loadingData.every((step) => step.progress === 100)) {
       setIsDone(true);
+    }
+  };
+
+  const checkPageSupport = async (tabId: number) => {
+    const url = (await chrome.tabs.get(tabId)).url;
+    if (url?.includes("amazon")) {
+      setIsSupportedPage(false);
     }
   };
 
@@ -133,9 +141,9 @@ function App() {
   };
   //Step 1: Get Tha Tab Id and Store it
   const initializeExtension = async () => {
-    checkAIAccessibility();
     overRideLocalHost();
     const tabId = (await getCurrentTab()).id;
+    await checkPageSupport(tabId!);
     setTabId(tabId);
   };
 
@@ -381,6 +389,12 @@ function App() {
     },
   };
 
+  const getNoSupportedPageComponents = () => {
+    if (!isSupportedPage) {
+      return <Typography>Sorry our extension Does not currently support Amazon!</Typography>;
+    }
+  };
+
   return (
     <>
       <ThemeProvider theme={theme}>
@@ -401,8 +415,10 @@ function App() {
             }}
           />
         </Container>
+
         {getNoAIComponents()}
-        {readyToRender && canRunAI && (
+        {getNoSupportedPageComponents()}
+        {readyToRender && canRunAI && isSupportedPage && (
           <>
             <Container
               sx={{ minHeight: middleContainerMinHeight, minWidth: middleContainerMinWidth, margin: "20px 0px" }}
@@ -418,7 +434,7 @@ function App() {
                 )}
                 {isDone && (
                   <Typography>
-                    Any Text highted in Purple has been simplified for you convince! Thanks for using our product!
+                    Any Text highted in Purple has been simplified for your convenience! Thanks for using our product!
                   </Typography>
                 )}
                 {!loading && (

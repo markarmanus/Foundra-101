@@ -38,14 +38,11 @@ const handlerWrapper = async (eventType: Event["type"], event: Event, sendRespon
   } catch (error) {
     const typedError = error as AppError;
     console.log(error);
-
     if (typedError.tabId) {
       const terminalCodes = [ERROR_CODES.NO_TEXT_FOUND, ERROR_CODES.PROMPTER_FAILED, ERROR_CODES.SOMETHING_WENT_WRONG];
 
       if (terminalCodes.includes(typedError.code)) {
         const tabId = typedError.tabId;
-        console.log(tabId);
-
         const tabTitle = (await chrome.tabs.get(typedError.tabId)).title;
         alertTab(
           tabId,

@@ -16,8 +16,6 @@ const splitString = (str: string, maxLength = 1024) => {
     } else if (lastSpace > start) {
       end = lastSpace; // Otherwise, use space
     }
-    console.log(`Start is ${start} End is ${end}`);
-
     // If this is the last segment and it's smaller than maxLength, take the rest of the string
     if (end >= str.length || str.length - start <= maxLength) {
       result.push(str.slice(start).trim());
